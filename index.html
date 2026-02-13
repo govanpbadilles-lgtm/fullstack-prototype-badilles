@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full-Stack App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">Full-Stack App (Your Full Name)</div>
+            
+            <!-- Links visible when NOT logged in -->
+            <div class="nav-links" id="guestLinks">
+                <a href="#" id="loginLink">Login</a>
+                <a href="#" id="registerLink">Register</a>
+            </div>
+            
+            <!-- Links visible when logged in -->
+            <div class="nav-links hidden" id="userLinks">
+                <!-- Admin-only links -->
+                <div class="admin-links">
+                    <a href="#" id="employeesLink">Employees</a>
+                    <a href="#" id="accountsLink">Accounts</a>
+                    <a href="#" id="departmentsLink">Departments</a>
+                </div>
+                
+                <!-- User dropdown -->
+                <div class="dropdown">
+                    <button class="dropdown-toggle" id="userDropdown">
+                        <span id="usernameDisplay">User</span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="dropdown-menu" id="dropdownMenu">
+                        <a href="#" id="profileLink">Profile</a>
+                        <a href="#" id="myRequestsLink">My Requests</a>
+                        <hr>
+                        <a href="#" id="logoutLink">Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <!-- Landing Page -->
+        <section id="landingPage" class="page active">
+            <div class="welcome-container">
+                <h1>Welcome to Full-Stack App</h1>
+                <p class="subtitle">A static prototype before backend integration. Simulates:</p>
+                <ul class="features-list">
+                    <li>Email registration + fake verification</li>
+                    <li>Login with JWT-like token simulation</li>
+                    <li>Role-based UI (Admin/User)</li>
+                    <li>CRUD for Employees, Departments, Requests</li>
+                </ul>
+                <div class="note-box">
+                    <span class="note-icon">⚠️</span>
+                    <strong>Note:</strong> All data is stored in <code>localStorage</code>. Refresh to reset.
+                </div>
+                <button class="btn btn-primary" id="getStartedBtn">Get Started →</button>
+            </div>
+        </section>
+
+        <!-- Login Page -->
+        <section id="loginPage" class="page">
+            <div class="form-container">
+                <h2>Login</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                    <p class="form-footer">Don't have an account? <a href="#" id="goToRegister">Register here</a></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- Register Page -->
+        <section id="registerPage" class="page">
+            <div class="form-container">
+                <h2>Register</h2>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="registerName">Full Name</label>
+                        <input type="text" id="registerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerEmail">Email</label>
+                        <input type="email" id="registerEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">Password</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerRole">Role</label>
+                        <select id="registerRole" required>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                    <p class="form-footer">Already have an account? <a href="#" id="goToLogin">Login here</a></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- Profile Page -->
+        <section id="profilePage" class="page">
+            <div class="profile-container">
+                <h2>My Profile</h2>
+                <div class="profile-info">
+                    <p><strong>Name:</strong> <span id="profileName">-</span></p>
+                    <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
+                    <p><strong>Role:</strong> <span id="profileRole">-</span></p>
+                </div>
+                <button class="btn btn-secondary" id="editProfileBtn">Edit Profile</button>
+            </div>
+        </section>
+
+        <!-- Employees Page (Admin Only) -->
+        <section id="employeesPage" class="page">
+            <div class="data-container">
+                <h2>Employees Management</h2>
+                <button class="btn btn-primary" id="addEmployeeBtn">+ Add Employee</button>
+                <div id="employeesTable" class="data-table"></div>
+            </div>
+        </section>
+
+        <!-- Accounts Page (Admin Only) -->
+        <section id="accountsPage" class="page">
+            <div class="data-container">
+                <h2>Accounts Management</h2>
+                <div id="accountsTable" class="data-table"></div>
+            </div>
+        </section>
+
+        <!-- Departments Page (Admin Only) -->
+        <section id="departmentsPage" class="page">
+            <div class="data-container">
+                <h2>Departments Management</h2>
+                <button class="btn btn-primary" id="addDepartmentBtn">+ Add Department</button>
+                <div id="departmentsTable" class="data-table"></div>
+            </div>
+        </section>
+
+        <!-- My Requests Page -->
+        <section id="requestsPage" class="page">
+            <div class="data-container">
+                <h2>My Requests</h2>
+                <button class="btn btn-primary" id="addRequestBtn">+ New Request</button>
+                <div id="requestsTable" class="data-table"></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
