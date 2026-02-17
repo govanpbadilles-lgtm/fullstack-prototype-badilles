@@ -1,9 +1,8 @@
 /* =========================================
-   PHASE 4: DATA PERSISTENCE & INITIALIZATION
+   PHASE 4: DATA PERSISTENCE
    ========================================= */
-const STORAGE_KEY = 'ipt_demo_final_v3'; // Bumped version to ensure clean load
+const STORAGE_KEY = 'ipt_demo_final_v5'; 
 
-// Global State
 let db = {
     accounts: [],
     departments: [],
@@ -12,7 +11,6 @@ let db = {
 };
 let currentUser = null;
 
-// TRACK EDITING STATE (-1 means "Create New")
 let editingAccountIndex = -1;
 let editingEmployeeIndex = -1;
 let editingDeptIndex = -1;
@@ -26,7 +24,6 @@ function loadFromStorage() {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
         db = JSON.parse(data);
-        // Safety checks
         if (!db.employees) db.employees = [];
         if (!db.requests) db.requests = [];
         if (!db.departments) db.departments = [];
@@ -84,7 +81,6 @@ function handleRouting() {
     const activePage = document.getElementById(`${path}-page`);
     if (activePage) activePage.classList.add('active');
 
-    // Render Data based on active page
     if (path === 'profile') renderProfile();
     if (path === 'accounts') renderAccounts();
     if (path === 'departments') renderDepartments();
@@ -97,7 +93,7 @@ function navigateTo(route) {
 }
 
 /* =========================================
-   PHASE 3: AUTH
+   PHASE 3: AUTH (VERIFICATION FIX)
    ========================================= */
 document.getElementById('register-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -116,16 +112,40 @@ document.getElementById('register-form').addEventListener('submit', (e) => {
     navigateTo('verify-email');
 });
 
+
 function simulateEmailVerification() {
     const email = localStorage.getItem('unverified_email');
-    if (!email) { navigateTo('login'); return; }
+    
+    if (!email) {
+        alert("No pending verification found.");
+        navigateTo('login');
+        return;
+    }
+
     const user = db.accounts.find(u => u.email === email);
     if (user) {
         user.verified = true;
         saveToStorage();
         localStorage.removeItem('unverified_email');
-        alert("Email Verified! Please Login.");
-        navigateTo('login');
+
+        // Update Text: Added the Green Check ✅ back here
+        const msgDiv = document.getElementById('verify-message');
+        if(msgDiv) msgDiv.innerHTML = "<strong>✅ Email verified! You may now log in.</strong>";
+        
+        // Disable Simulate Button
+        const simBtn = document.getElementById('btn-simulate');
+        if(simBtn) {
+            simBtn.innerText = "Verified";
+            simBtn.disabled = true;
+        }
+
+        // Enable Login Button
+        const loginBtn = document.getElementById('btn-login-link');
+        if(loginBtn) {
+            loginBtn.classList.remove('disabled');
+            loginBtn.classList.remove('btn-outline-secondary');
+            loginBtn.classList.add('btn-success');
+        }
     }
 }
 
@@ -168,18 +188,15 @@ function logout() {
 }
 
 /* =========================================
-   PHASE 5: PROFILE (COMPLETED WITH EDIT)
+   PHASE 5: PROFILE
    ========================================= */
 function renderProfile() {
     if (!currentUser) return;
-    
-    // Updated Layout: Button is now under the Role
     document.getElementById('profile-card').innerHTML = `
         <div class="mb-3">
             <h4>${currentUser.firstName} ${currentUser.lastName}</h4>
             <p class="mb-1"><strong>Email:</strong> ${currentUser.email}</p>
             <p class="mb-3"><strong>Role:</strong> <span class="badge bg-info">${currentUser.role}</span></p>
-            
             <button class="btn btn-outline-primary" onclick="prepareEditProfile()">Edit Profile</button>
         </div>
     `;
@@ -192,31 +209,21 @@ function prepareEditProfile() {
     new bootstrap.Modal(document.getElementById('profileModal')).show();
 }
 
-// Check if form exists (to avoid errors on pages without the modal)
 if(document.getElementById('edit-profile-form')) {
     document.getElementById('edit-profile-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const newFirst = document.getElementById('prof-first').value;
         const newLast = document.getElementById('prof-last').value;
-
-        // Find user index
         const userIndex = db.accounts.findIndex(u => u.email === currentUser.email);
         
         if (userIndex !== -1) {
-            // Update Database
             db.accounts[userIndex].firstName = newFirst;
             db.accounts[userIndex].lastName = newLast;
-            
-            // Update Global State
             currentUser.firstName = newFirst;
             currentUser.lastName = newLast;
-
             saveToStorage();
-            
-            // Refresh UI
             renderProfile(); 
             document.getElementById('navUserDropdown').textContent = newFirst; 
-            
             bootstrap.Modal.getOrCreateInstance(document.getElementById('profileModal')).hide();
             alert("Profile updated!");
         }
@@ -227,8 +234,7 @@ if(document.getElementById('edit-profile-form')) {
    PHASE 6: ADMIN CRUD
    ========================================= */
 
-// --- ACCOUNTS LOGIC ---
-
+// ACCOUNTS
 function renderAccounts() {
     document.getElementById('accounts-table-body').innerHTML = db.accounts.map((acc, index) => `
         <tr>
@@ -285,13 +291,8 @@ document.getElementById('add-account-form').addEventListener('submit', (e) => {
         role: document.getElementById('acc-role').value,
         verified: true
     };
-    
-    if (editingAccountIndex === -1) {
-        db.accounts.push(data); 
-    } else {
-        db.accounts[editingAccountIndex] = data; 
-    }
-
+    if (editingAccountIndex === -1) db.accounts.push(data); 
+    else db.accounts[editingAccountIndex] = data; 
     saveToStorage();
     renderAccounts();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('accountModal')).hide();
@@ -302,14 +303,11 @@ function deleteAccount(i) {
     if (confirm("Sure?")) { db.accounts.splice(i, 1); saveToStorage(); renderAccounts(); }
 }
 
-
-// --- EMPLOYEES LOGIC ---
-
+// EMPLOYEES
 function renderEmployees() {
     const tbody = document.getElementById('employees-table-body');
     if (!tbody) return;
     if (!db.employees) db.employees = [];
-
     tbody.innerHTML = db.employees.map((emp, index) => `
         <tr>
             <td>${emp.id}</td>
@@ -345,7 +343,6 @@ function editEmployee(index) {
 
 document.getElementById('add-employee-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    
     const data = {
         id: document.getElementById('emp-id').value,
         email: document.getElementById('emp-email').value,
@@ -353,13 +350,8 @@ document.getElementById('add-employee-form').addEventListener('submit', (e) => {
         department: document.getElementById('emp-dept').value,
         date: document.getElementById('emp-date').value
     };
-
-    if (editingEmployeeIndex === -1) {
-        db.employees.push(data);
-    } else {
-        db.employees[editingEmployeeIndex] = data;
-    }
-
+    if (editingEmployeeIndex === -1) db.employees.push(data);
+    else db.employees[editingEmployeeIndex] = data;
     saveToStorage();
     renderEmployees();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('employeeModal')).hide();
@@ -370,14 +362,11 @@ function deleteEmployee(i) {
     if(confirm("Remove?")) { db.employees.splice(i, 1); saveToStorage(); renderEmployees(); }
 }
 
-
-// --- DEPARTMENTS LOGIC ---
-
+// DEPARTMENTS
 function renderDepartments() {
     const tbody = document.getElementById('departments-table-body');
     if (!tbody) return;
     if (!db.departments) db.departments = [];
-
     tbody.innerHTML = db.departments.map((dept, index) => `
         <tr>
             <td>${dept.name}</td>
@@ -413,13 +402,8 @@ if(document.getElementById('add-department-form')) {
             name: document.getElementById('dept-name').value,
             description: document.getElementById('dept-desc').value
         };
-
-        if (editingDeptIndex === -1) {
-            db.departments.push(data);
-        } else {
-            db.departments[editingDeptIndex] = data;
-        }
-
+        if (editingDeptIndex === -1) db.departments.push(data);
+        else db.departments[editingDeptIndex] = data;
         saveToStorage();
         renderDepartments();
         bootstrap.Modal.getOrCreateInstance(document.getElementById('departmentModal')).hide();
