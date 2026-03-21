@@ -1,12 +1,10 @@
 /* =========================================
-   PHASE 1: INITIALIZATION & DATA PERSISTENCE
+   PHASE 1 & 4: INITIALIZATION & LOCAL STORAGE
    ========================================= */
-const STORAGE_KEY = 'ipt_demo_final_v5'; 
+const STORAGE_KEY = 'ipt_demo_v1'; // Base sa Lab 2 guide
 
-// Gamiton gihapon nato ni para sa Employees, Departments, ug Requests.
-// Pero ang Authentication (Login/Register) adto na sa Node.js Backend!
 let db = {
-    accounts: [], 
+    accounts: [],
     departments: [],
     employees: [],
     requests: []
@@ -33,11 +31,11 @@ function loadFromStorage() {
         seedData();
     }
     
-    // I-check kung naka-login na ba daan ang user (Gamit ang VIP Token)
-    const token = sessionStorage.getItem('authToken');
-    const storedUser = sessionStorage.getItem('currentUser');
-    if (token && storedUser) {
-        setAuthState(true, JSON.parse(storedUser));
+    // Check if user is already logged in
+    const storedEmail = localStorage.getItem('auth_token');
+    if (storedEmail) {
+        const user = db.accounts.find(u => u.email === storedEmail);
+        if (user) setAuthState(true, user);
     }
 }
 
@@ -46,6 +44,11 @@ function saveToStorage() {
 }
 
 function seedData() {
+    // Seed admin account and departments exactly as requested in Phase 4
+    db.accounts.push({
+        firstName: "Admin", lastName: "User", email: "admin@example.com",
+        password: "Password123!", role: "Admin", verified: true
+    });
     db.departments.push(
         { name: "Engineering", description: "Software team" },
         { name: "HR", description: "Human Resources" }
@@ -54,7 +57,7 @@ function seedData() {
 }
 
 /* =========================================
-   PHASE 2: ROUTING & NAVIGATION
+   PHASE 2: ROUTING
    ========================================= */
 window.addEventListener('hashchange', handleRouting);
 
@@ -66,14 +69,14 @@ function handleRouting() {
     const protectedRoutes = ['profile', 'requests'];
     const adminRoutes = ['employees', 'accounts', 'departments'];
 
-    // Kung gusto mo-sulod sa protected pero walay account, i-labay sa login
+    // Block unauthenticated users from protected/admin routes
     if ((protectedRoutes.includes(path) || adminRoutes.includes(path)) && !currentUser) {
         navigateTo('login');
         return;
     }
 
-    // Kung mo-sulod sa admin page pero User ra, i-block!
-    if (adminRoutes.includes(path) && currentUser && currentUser.role.toLowerCase() !== 'admin') {
+    // Block non-admins from admin routes
+    if (adminRoutes.includes(path) && currentUser && currentUser.role !== 'Admin') {
         alert("Access Denied: Admins only.");
         navigateTo('home');
         return;
@@ -83,6 +86,7 @@ function handleRouting() {
     const activePage = document.getElementById(`${path}-page`);
     if (activePage) activePage.classList.add('active');
 
+    // Trigger render functions when pages load
     if (path === 'profile') renderProfile();
     if (path === 'accounts') renderAccounts();
     if (path === 'departments') renderDepartments();
@@ -95,99 +99,94 @@ function navigateTo(route) {
 }
 
 /* =========================================
-   PHASE 3: REAL BACKEND AUTHENTICATION (API)
+   PHASE 3: AUTHENTICATION SYSTEM (No Backend)
    ========================================= */
 
-// --- REGISTER ---
-document.getElementById('register-form').addEventListener('submit', async (e) => {
+// A. Registration
+document.getElementById('register-form').addEventListener('submit', (e) => {
     e.preventDefault();
+    const first = document.getElementById('reg-first').value;
+    const last = document.getElementById('reg-last').value;
     const email = document.getElementById('reg-email').value;
     const pass = document.getElementById('reg-pass').value;
 
-    try {
-        const response = await fetch('http://localhost:3000/api/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: email, password: pass, role: 'user' })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            localStorage.setItem('unverified_email', email);
-            navigateTo('verify-email');
-        } else {
-            alert("Registration failed: " + data.error);
-        }
-    } catch (err) {
-        alert('Network error - Is your backend server running on port 3000?');
+    if (db.accounts.find(u => u.email === email)) {
+        alert("Email already exists!");
+        return;
     }
+    
+    // Save new unverified user
+    db.accounts.push({ firstName: first, lastName: last, email, password: pass, role: "User", verified: false });
+    saveToStorage();
+    
+    localStorage.setItem('unverified_email', email);
+    navigateTo('verify-email');
 });
 
+// B. Email Verification (Simulated)
 function simulateEmailVerification() {
     const email = localStorage.getItem('unverified_email');
-    if (!email) { alert("No pending verification found."); navigateTo('login'); return; }
+    
+    if (!email) {
+        alert("No pending verification found.");
+        navigateTo('login');
+        return;
+    }
 
-    localStorage.removeItem('unverified_email');
-    const msgDiv = document.getElementById('verify-message');
-    if(msgDiv) msgDiv.innerHTML = "<strong>✅ Email verified! You may now log in.</strong>";
-    const simBtn = document.getElementById('btn-simulate');
-    if(simBtn) { simBtn.innerText = "Verified"; simBtn.disabled = true; }
-    const loginBtn = document.getElementById('btn-login-link');
-    if(loginBtn) { loginBtn.classList.remove('disabled'); loginBtn.classList.remove('btn-outline-secondary'); loginBtn.classList.add('btn-success'); }
+    const user = db.accounts.find(u => u.email === email);
+    if (user) {
+        user.verified = true;
+        saveToStorage();
+        localStorage.removeItem('unverified_email');
+
+        const msgDiv = document.getElementById('verify-message');
+        if(msgDiv) msgDiv.innerHTML = "<strong>✅ Email verified! You may now log in.</strong>";
+        
+        const simBtn = document.getElementById('btn-simulate');
+        if(simBtn) {
+            simBtn.innerText = "Verified";
+            simBtn.disabled = true;
+        }
+
+        const loginBtn = document.getElementById('btn-login-link');
+        if(loginBtn) {
+            loginBtn.classList.remove('disabled');
+            loginBtn.classList.remove('btn-outline-secondary');
+            loginBtn.classList.add('btn-success');
+        }
+    }
 }
 
-// --- LOGIN ---
-document.getElementById('login-form').addEventListener('submit', async (e) => {
+// C. Login
+document.getElementById('login-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
     const pass = document.getElementById('login-pass').value;
+    
+    const user = db.accounts.find(u => u.email === email && u.password === pass);
 
-    try {
-        const response = await fetch('http://localhost:3000/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: email, password: pass })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            // Save token (VIP Wristband) sa sessionStorage
-            sessionStorage.setItem('authToken', data.token);
-            
-            const loggedInUser = {
-                firstName: data.user.username,
-                lastName: "",
-                email: data.user.username,
-                role: data.user.role 
-            };
-            
-            sessionStorage.setItem('currentUser', JSON.stringify(loggedInUser));
-            setAuthState(true, loggedInUser);
-            navigateTo('profile');
-        } else {
-            alert('Login failed: ' + data.error);
+    if (user) {
+        if (!user.verified) { 
+            alert("Please verify email first."); 
+            return; 
         }
-    } catch (err) {
-        alert('Network error - Is your backend server running on port 3000?');
+        localStorage.setItem('auth_token', email);
+        setAuthState(true, user);
+        navigateTo('profile');
+    } else {
+        alert("Invalid credentials.");
     }
 });
 
+// D. Auth State Management
 function setAuthState(isAuth, user) {
     currentUser = user;
     if (isAuth) {
         document.body.classList.remove('not-authenticated');
         document.body.classList.add('authenticated');
-        let displayName = user.firstName;
-        if(displayName.includes('@')) displayName = displayName.split('@')[0];
-        document.getElementById('navUserDropdown').textContent = displayName;
-        
-        if (user.role.toLowerCase() === 'admin') {
-            document.body.classList.add('is-admin');
-        } else {
-            document.body.classList.remove('is-admin');
-        }
+        document.getElementById('navUserDropdown').textContent = user.firstName;
+        if (user.role === 'Admin') document.body.classList.add('is-admin');
+        else document.body.classList.remove('is-admin');
     } else {
         currentUser = null;
         document.body.classList.add('not-authenticated');
@@ -196,55 +195,26 @@ function setAuthState(isAuth, user) {
     }
 }
 
+// E. Logout
 function logout() {
-    sessionStorage.removeItem('authToken');
-    sessionStorage.removeItem('currentUser');
+    localStorage.removeItem('auth_token');
     setAuthState(false, null);
     navigateTo('home');
 }
 
 /* =========================================
-   PHASE 4: PROFILE & SECURE ROUTE TESTING
+   PHASE 5: PROFILE
    ========================================= */
 function renderProfile() {
     if (!currentUser) return;
-    
-    const displayRole = currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
-
     document.getElementById('profile-card').innerHTML = `
         <div class="mb-3">
             <h4>${currentUser.firstName} ${currentUser.lastName}</h4>
             <p class="mb-1"><strong>Email:</strong> ${currentUser.email}</p>
-            <p class="mb-3"><strong>Role:</strong> <span class="badge bg-info">${displayRole}</span></p>
-            <button class="btn btn-outline-primary me-2" onclick="prepareEditProfile()">Edit Profile</button>
-            
-            <button class="btn btn-danger" onclick="testAdminRoute()">🕵️‍♂️ Test Admin Route</button>
+            <p class="mb-3"><strong>Role:</strong> <span class="badge bg-info">${currentUser.role}</span></p>
+            <button class="btn btn-outline-primary" onclick="prepareEditProfile()">Edit Profile</button>
         </div>
     `;
-}
-
-//  Shortcut para sa VIP Wristband (Token)
-function getAuthHeader() {
-    const token = sessionStorage.getItem('authToken');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
-}
-
-// Function para ma-test ang Admin Route didto sa Backend gamit ang getAuthHeader()
-async function testAdminRoute() {
-    try {
-        const res = await fetch('http://localhost:3000/api/admin/dashboard', {
-            headers: getAuthHeader() // Gitawag nato ang shortcut function dinhi
-        });
-
-        if (res.ok) {
-            const data = await res.json();
-            alert("✅ SUCCESS: " + data.message + "\n\nData: " + data.data);
-        } else {
-            alert("❌ BLOCKED: Access denied!");
-        }
-    } catch (err) {
-        alert("Network error!");
-    }
 }
 
 function prepareEditProfile() {
@@ -257,21 +227,29 @@ function prepareEditProfile() {
 if(document.getElementById('edit-profile-form')) {
     document.getElementById('edit-profile-form').addEventListener('submit', (e) => {
         e.preventDefault();
-        currentUser.firstName = document.getElementById('prof-first').value;
-        currentUser.lastName = document.getElementById('prof-last').value;
-        sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
-        renderProfile(); 
-        document.getElementById('navUserDropdown').textContent = currentUser.firstName; 
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('profileModal')).hide();
-        alert("Profile updated locally!");
+        const newFirst = document.getElementById('prof-first').value;
+        const newLast = document.getElementById('prof-last').value;
+        const userIndex = db.accounts.findIndex(u => u.email === currentUser.email);
+        
+        if (userIndex !== -1) {
+            db.accounts[userIndex].firstName = newFirst;
+            db.accounts[userIndex].lastName = newLast;
+            currentUser.firstName = newFirst;
+            currentUser.lastName = newLast;
+            saveToStorage();
+            renderProfile(); 
+            document.getElementById('navUserDropdown').textContent = newFirst; 
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('profileModal')).hide();
+            alert("Profile updated!");
+        }
     });
 }
 
 /* =========================================
-   PHASE 5: ADMIN CRUD (Local Simulation)
+   PHASE 6: ADMIN CRUD
    ========================================= */
 
-// ACCOUNTS
+// A. ACCOUNTS
 function renderAccounts() {
     document.getElementById('accounts-table-body').innerHTML = db.accounts.map((acc, index) => `
         <tr>
@@ -337,69 +315,18 @@ document.getElementById('add-account-form').addEventListener('submit', (e) => {
 });
 
 function deleteAccount(i) {
-    if (confirm("Sure?")) { db.accounts.splice(i, 1); saveToStorage(); renderAccounts(); }
+    if (confirm("Are you sure?")) { 
+        if(db.accounts[i].email === currentUser.email) {
+            alert("You cannot delete your own account!");
+            return;
+        }
+        db.accounts.splice(i, 1); 
+        saveToStorage(); 
+        renderAccounts(); 
+    }
 }
 
-// EMPLOYEES
-function renderEmployees() {
-    const tbody = document.getElementById('employees-table-body');
-    if (!tbody) return;
-    if (!db.employees) db.employees = [];
-    tbody.innerHTML = db.employees.map((emp, index) => `
-        <tr>
-            <td>${emp.id}</td>
-            <td>${emp.email}</td>
-            <td>${emp.position}</td>
-            <td>${emp.department}</td>
-            <td>
-                <button class="btn btn-sm btn-warning me-1" onclick="editEmployee(${index})">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${index})">Delete</button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-function prepareAddEmployee() {
-    editingEmployeeIndex = -1;
-    document.getElementById('add-employee-form').reset();
-    document.querySelector('#employeeModal .modal-title').innerText = "Add Employee";
-    new bootstrap.Modal(document.getElementById('employeeModal')).show();
-}
-
-function editEmployee(index) {
-    editingEmployeeIndex = index;
-    const emp = db.employees[index];
-    document.getElementById('emp-id').value = emp.id;
-    document.getElementById('emp-email').value = emp.email;
-    document.getElementById('emp-pos').value = emp.position;
-    document.getElementById('emp-dept').value = emp.department;
-    document.getElementById('emp-date').value = emp.date;
-    document.querySelector('#employeeModal .modal-title').innerText = "Edit Employee";
-    new bootstrap.Modal(document.getElementById('employeeModal')).show();
-}
-
-document.getElementById('add-employee-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const data = {
-        id: document.getElementById('emp-id').value,
-        email: document.getElementById('emp-email').value,
-        position: document.getElementById('emp-pos').value,
-        department: document.getElementById('emp-dept').value,
-        date: document.getElementById('emp-date').value
-    };
-    if (editingEmployeeIndex === -1) db.employees.push(data);
-    else db.employees[editingEmployeeIndex] = data;
-    saveToStorage();
-    renderEmployees();
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('employeeModal')).hide();
-    e.target.reset();
-});
-
-function deleteEmployee(i) {
-    if(confirm("Remove?")) { db.employees.splice(i, 1); saveToStorage(); renderEmployees(); }
-}
-
-// DEPARTMENTS
+// B. DEPARTMENTS
 function renderDepartments() {
     const tbody = document.getElementById('departments-table-body');
     if (!tbody) return;
@@ -452,8 +379,85 @@ function deleteDepartment(i) {
     if(confirm("Delete Department?")) { db.departments.splice(i, 1); saveToStorage(); renderDepartments(); }
 }
 
+// C. EMPLOYEES
+function renderEmployees() {
+    const tbody = document.getElementById('employees-table-body');
+    if (!tbody) return;
+    if (!db.employees) db.employees = [];
+    tbody.innerHTML = db.employees.map((emp, index) => `
+        <tr>
+            <td>${emp.id}</td>
+            <td>${emp.email}</td>
+            <td>${emp.position}</td>
+            <td>${emp.department}</td>
+            <td>
+                <button class="btn btn-sm btn-warning me-1" onclick="editEmployee(${index})">Edit</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${index})">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function prepareAddEmployee() {
+    editingEmployeeIndex = -1;
+    document.getElementById('add-employee-form').reset();
+    
+    // Populate Department Dropdown
+    const deptSelect = document.getElementById('emp-dept');
+    deptSelect.innerHTML = db.departments.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+
+    document.querySelector('#employeeModal .modal-title').innerText = "Add Employee";
+    new bootstrap.Modal(document.getElementById('employeeModal')).show();
+}
+
+function editEmployee(index) {
+    editingEmployeeIndex = index;
+    const emp = db.employees[index];
+    
+    // Populate Department Dropdown
+    const deptSelect = document.getElementById('emp-dept');
+    deptSelect.innerHTML = db.departments.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+
+    document.getElementById('emp-id').value = emp.id;
+    document.getElementById('emp-email').value = emp.email;
+    document.getElementById('emp-pos').value = emp.position;
+    document.getElementById('emp-dept').value = emp.department;
+    document.getElementById('emp-date').value = emp.date;
+    document.querySelector('#employeeModal .modal-title').innerText = "Edit Employee";
+    new bootstrap.Modal(document.getElementById('employeeModal')).show();
+}
+
+document.getElementById('add-employee-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const emailInput = document.getElementById('emp-email').value;
+    
+    // Check if email belongs to an existing account
+    if (!db.accounts.find(u => u.email === emailInput)) {
+        alert("User Email must match an existing account!");
+        return;
+    }
+
+    const data = {
+        id: document.getElementById('emp-id').value,
+        email: emailInput,
+        position: document.getElementById('emp-pos').value,
+        department: document.getElementById('emp-dept').value,
+        date: document.getElementById('emp-date').value
+    };
+    if (editingEmployeeIndex === -1) db.employees.push(data);
+    else db.employees[editingEmployeeIndex] = data;
+    saveToStorage();
+    renderEmployees();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('employeeModal')).hide();
+    e.target.reset();
+});
+
+function deleteEmployee(i) {
+    if(confirm("Remove?")) { db.employees.splice(i, 1); saveToStorage(); renderEmployees(); }
+}
+
 /* =========================================
-   PHASE 6: REQUESTS
+   PHASE 7: REQUESTS
    ========================================= */
 function renderRequests() {
     const myRequests = db.requests.filter(r => r.employeeEmail === currentUser.email);
@@ -462,7 +466,7 @@ function renderRequests() {
             <td>${req.date}</td>
             <td>${req.type}</td>
             <td>${req.items.map(i => `${i.qty}x ${i.name}`).join(', ')}</td>
-            <td><span class="badge bg-warning">${req.status}</span></td>
+            <td><span class="badge bg-warning text-dark">${req.status}</span></td>
         </tr>
     `).join('');
 }
@@ -476,7 +480,7 @@ function openRequestModal() {
 function addRequestItemRow() {
     const div = document.createElement('div');
     div.className = 'input-group mb-2';
-    div.innerHTML = `<input type="text" class="form-control" placeholder="Item"><input type="number" class="form-control" value="1" style="max-width:80px"><button type="button" class="btn btn-danger" onclick="this.parentElement.remove()">×</button>`;
+    div.innerHTML = `<input type="text" class="form-control" placeholder="Item" required><input type="number" class="form-control" value="1" min="1" style="max-width:80px" required><button type="button" class="btn btn-danger" onclick="this.parentElement.remove()">×</button>`;
     document.getElementById('req-items-container').appendChild(div);
 }
 
@@ -485,8 +489,16 @@ document.getElementById('request-form').addEventListener('submit', (e) => {
     const items = [];
     document.querySelectorAll('#req-items-container .input-group').forEach(row => {
         const inputs = row.querySelectorAll('input');
-        items.push({ name: inputs[0].value, qty: inputs[1].value });
+        if(inputs[0].value) { // Basic validation
+            items.push({ name: inputs[0].value, qty: inputs[1].value });
+        }
     });
+
+    if(items.length === 0) {
+        alert("Please add at least one item.");
+        return;
+    }
+
     db.requests.push({
         id: Date.now(), type: document.getElementById('req-type').value, items, status: "Pending",
         date: new Date().toLocaleDateString(), employeeEmail: currentUser.email
