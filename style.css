@@ -1,0 +1,42 @@
+/* 1. Page Visibility Logic 
+   By default, all sections with class "page" are hidden.
+   Only the one with class "active" is shown.
+*/
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+    animation: fadeIn 0.3s; /* Just a little smooth effect */
+}
+
+/* 2. Authentication Logic (Based on Body Class) */
+
+/* If body has "not-authenticated", hide elements meant for logged-in users */
+body.not-authenticated .role-logged-in {
+    display: none !important;
+}
+
+/* If body has "authenticated", hide elements meant for guests (like Login link) */
+body.authenticated .role-logged-out {
+    display: none !important;
+}
+
+/* 3. Role-Based Logic */
+
+/* By default, hide admin links */
+.role-admin {
+    display: none !important;
+}
+
+/* If body has "is-admin", show the admin links */
+body.is-admin .role-admin {
+    display: block !important;
+}
+
+/* Animation for smooth page switching */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
